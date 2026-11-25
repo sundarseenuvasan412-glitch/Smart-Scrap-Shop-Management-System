@@ -1,0 +1,284 @@
+{
+  "info": {
+    "_postman_id": "c0f547ac-99c8-4efb-950f-6a6d8ad4c463",
+    "name": "ScrapWorld Authentication",
+    "description": "Authentication checks for the local ScrapWorld API. Run in order so the CSRF token and login cookie are available to later requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "unauthBaseUrl", "value": "http://127.0.0.1:8080" },
+    { "key": "csrfToken", "value": "" },
+    { "key": "email", "value": "" },
+    { "key": "password", "value": "Alex@123" }
+  ],
+  "item": [
+    {
+      "name": "Get CSRF token",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/auth/csrf"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('CSRF token is available', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.collectionVariables.set('csrfToken', pm.response.json().token);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register - success",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('email', `sw-test-${Date.now()}@example.com`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Registration succeeds', function () {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(pm.response.json().success).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"fullName\":\"Alex Morgan\",\"email\":\"{{email}}\",\"phone\":\"9876543210\",\"password\":\"{{password}}\",\"confirmPassword\":\"{{password}}\"}"
+        },
+        "url": "{{baseUrl}}/api/auth/register"
+      }
+    },
+    {
+      "name": "Register - duplicate email",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Duplicate email is rejected', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"fullName\":\"Alex Morgan\",\"email\":\"{{email}}\",\"phone\":\"9876543210\",\"password\":\"{{password}}\",\"confirmPassword\":\"{{password}}\"}"
+        },
+        "url": "{{baseUrl}}/api/auth/register"
+      }
+    },
+    {
+      "name": "Register - invalid email",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Invalid email is rejected', function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"fullName\":\"Alex Morgan\",\"email\":\"not-an-email\",\"phone\":\"9876543210\",\"password\":\"{{password}}\",\"confirmPassword\":\"{{password}}\"}"
+        },
+        "url": "{{baseUrl}}/api/auth/register"
+      }
+    },
+    {
+      "name": "Register - password mismatch",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Password mismatch is rejected', function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"fullName\":\"Alex Morgan\",\"email\":\"mismatch@example.com\",\"phone\":\"9876543210\",\"password\":\"{{password}}\",\"confirmPassword\":\"Different@123\"}"
+        },
+        "url": "{{baseUrl}}/api/auth/register"
+      }
+    },
+    {
+      "name": "Login - success",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login succeeds and customer role is returned', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().tokenType).to.eql('Bearer');",
+              "  pm.expect(pm.response.json().user.role).to.eql('CUSTOMER');",
+              "  pm.expect(pm.response.json()).not.to.have.property('token');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"{{email}}\",\"password\":\"{{password}}\",\"rememberMe\":false}"
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "Login - incorrect password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Incorrect password is rejected', function () {",
+              "  pm.response.to.have.status(401);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"{{email}}\",\"password\":\"wrong-password\"}"
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "Login - missing required fields",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Missing login fields are rejected', function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{}" },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "Protected user endpoint - unauthenticated",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Unauthenticated request is rejected', function () {",
+              "  pm.response.to.have.status(401);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{unauthBaseUrl}}/api/users/me"
+      }
+    },
+    {
+      "name": "Admin endpoint - customer forbidden",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Customer cannot access admin endpoint', function () {",
+              "  pm.response.to.have.status(403);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/admin/ping"
+      }
+    }
+  ]
+}
